@@ -1,0 +1,15 @@
+# Optional: start AnemiaScan automatically when the Pi boots.
+# Install:  sudo cp anemiascan.service /etc/systemd/system/ && sudo systemctl enable --now anemiascan
+# (change "pi" and the path below if your user name or folder is different)
+[Unit]
+Description=AnemiaScan GUI
+After=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/AnemiaScan_Pi_GUI
+ExecStart=/home/pi/AnemiaScan_Pi_GUI/.venv/bin/python app.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+# Installed by setup_pi.sh. On the Pi, picamera2 / OpenCV / Flask / gpiozero come from apt (sudo apt install ...),
+# only onnxruntime comes from pip. On a laptop (upload-only test) install all of these with pip.
+flask
+numpy
+opencv-python-headless
+onnxruntime
