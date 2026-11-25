@@ -1,0 +1,2 @@
+Put the 4 model files + config.json here (unzip AnemiaScan_Pi_models.zip from Export_Models_for_Pi.ipynb):
+nail_seg.onnx  palm_seg.onnx  nail_hb.onnx  palm_hb.onnx  config.json

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AnemiaScan</title>
+<style>
+  :root { --ink:#1d2b36; --mute:#5b6b78; --line:#d5dce3; --bg:#eef2f5; --card:#fff; --teal:#2a9d8f; --coral:#e76f51; --red:#c0392b; --green:#1e8449; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--ink); color:#fff; padding:14px 24px; display:flex; align-items:baseline; gap:14px; }
+  header h1 { margin:0; font-size:22px; } header span { color:#9fb0bf; font-size:14px; }
+  main { display:grid; grid-template-columns: 1.2fr 1fr 1fr; gap:16px; padding:16px 24px; max-width:1400px; margin:auto; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .card h2 { margin:0 0 10px; font-size:16px; }
+  .live { width:100%; aspect-ratio:4/3; background:#111; border-radius:8px; object-fit:contain; display:block; }
+  .nocam { display:flex; align-items:center; justify-content:center; text-align:center; color:#9fb0bf; font-size:15px; line-height:1.6; }
+  .camrow { display:flex; gap:8px; align-items:center; margin-top:8px; } .camrow select { flex:1; padding:6px; font-size:13px; }
+  .note { color:var(--mute); font-size:13px; margin:6px 0 0; }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; } .btns button { width:100%; }
+  button { font:inherit; font-weight:600; border:0; border-radius:8px; padding:11px 14px; cursor:pointer; color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .nail { background:var(--coral); } .palm { background:var(--teal); } .go { background:var(--ink); width:100%; font-size:17px; padding:13px; }
+  .ghost { background:none; color:var(--mute); border:1px solid var(--line); }
+  .up { font-size:12.5px; color:var(--mute); text-align:center; margin-top:4px; } .up label { text-decoration:underline; cursor:pointer; }
+  .shot { margin-bottom:12px; } .shot h3 { margin:0 0 6px; font-size:14px; display:flex; justify-content:space-between; }
+  .shot img { width:100%; aspect-ratio:4/3; object-fit:contain; background:#f4f6f9; border:1px dashed var(--line); border-radius:8px; display:block; }
+  .tag { font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; background:#eee; color:var(--mute); }
+  .tag.ok { background:#e3f4ea; color:var(--green); } .tag.bad { background:#fbe5e1; color:var(--red); }
+  .field { margin-bottom:12px; } .field label.t { display:block; font-weight:600; font-size:14px; margin-bottom:6px; }
+  .seg { display:flex; gap:8px; } .seg input { display:none; }
+  .seg label { flex:1; text-align:center; padding:9px; border:1px solid var(--line); border-radius:8px; cursor:pointer; }
+  .seg input:checked + label { border-color:var(--ink); background:var(--ink); color:#fff; }
+  #age { width:100%; font:inherit; padding:9px; border-radius:8px; border:1px solid var(--line); background:#fff; }
+  select { width:100%; font:inherit; padding:9px; border-radius:8px; border:1px solid var(--line); background:#fff; }
+  .result { margin-top:14px; text-align:center; display:none; }
+  .hb { font-size:46px; font-weight:800; margin:4px 0 0; } .verdict { font-size:24px; font-weight:800; margin:2px 0; } .sev { font-size:16px; }
+  .parts { margin:12px 0 4px; font-size:14px; color:var(--mute); line-height:1.6; }
+  .warn { background:#fff6e5; border:1px solid #f0d49a; color:#7a5a12; border-radius:8px; padding:8px 10px; font-size:13px; margin-top:8px; text-align:left; }
+  .err { color:var(--red); font-size:14px; min-height:18px; margin-top:8px; }
+  .foot { color:var(--mute); font-size:12px; margin-top:10px; }
+</style>
+</head>
+<body>
+<header><h1>AnemiaScan</h1><span>Noninvasive anemia screening · palm + nail · Raspberry Pi prototype</span></header>
+<main>
+  <section class="card">
+    <h2>1. Place the hand in the box</h2>
+    {% if camera %}<img id="live" class="live" alt="">
+    <p class="note">Live view from the box camera ({{ camera }}). The LED stays on while the app runs.</p>
+    {% else %}<video id="cam" class="live" autoplay playsinline muted></video>
+    <div class="camrow"><select id="camsel" onchange="startCam(this.value)"></select><span id="camstat" class="tag">starting camera…</span></div>
+    <p class="note">Camera on this computer: the photo is taken here and sent to the Pi for analysis.</p>{% endif %}
+    <div class="btns">
+      <div><button class="nail" onclick="capture('nail')">Capture NAIL</button>
+        <div class="up">or <label for="f-nail">upload photo</label><input id="f-nail" type="file" accept="image/*" hidden onchange="capture('nail', this)"></div></div>
+      <div><button class="palm" onclick="capture('palm')">Capture PALM</button>
+        <div class="up">or <label for="f-palm">upload photo</label><input id="f-palm" type="file" accept="image/*" hidden onchange="capture('palm', this)"></div></div>
+    </div>
+    <p class="note">Nails: fingers flat, no nail polish. Palm: open hand, palm facing the camera.</p>
+  </section>
+
+  <section class="card">
+    <h2>2. Detected regions</h2>
+    <div class="shot"><h3>Nail <span id="t-nail" class="tag">not taken</span></h3><img id="i-nail" alt=""></div>
+    <div class="shot"><h3>Palm <span id="t-palm" class="tag">not taken</span></h3><img id="i-palm" alt=""></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Person and result</h2>
+    <div class="field"><label class="t">Gender</label>
+      <div class="seg"><input type="radio" name="sex" id="s-f" value="female"><label for="s-f">Female</label>
+        <input type="radio" name="sex" id="s-m" value="male"><label for="s-m">Male</label></div></div>
+    <div class="field"><label class="t" for="age">Age (years)</label>
+      <input id="age" type="number" min="5" max="100" step="1" inputmode="numeric" placeholder="e.g. 21"
+             onkeydown="if (event.key === 'Enter') analyze()"></div>
+    <button class="go" id="go" onclick="analyze()">Analyze</button>
+    <div class="err" id="err"></div>
+    <div class="result" id="res">
+      <div class="hb" id="r-hb"></div><div class="verdict" id="r-v"></div><div class="sev" id="r-s"></div>
+      <div class="parts" id="r-p"></div><div id="r-w"></div>
+    </div>
+    <button class="ghost" style="width:100%;margin-top:12px" onclick="resetAll()">New person</button>
+    <p class="foot">Research prototype, not a medical diagnosis.</p>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let busy = false;
+function refresh() {
+  fetch('/preview.jpg?t=' + Date.now()).then(r => r.status === 200 ? r.blob() : null).then(b => {
+    if (b) { const u = URL.createObjectURL(b); const old = $('live').src; $('live').src = u; if (old.startsWith('blob:')) URL.revokeObjectURL(old); }
+    setTimeout(refresh, b ? 250 : 3000);
+  }).catch(() => setTimeout(refresh, 3000));
+}
+if ($('live')) refresh();
+
+// ── camera on this computer (used when the Pi has no camera) ──────────────
+let stream = null;
+const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+function camStatus(t, ok) { const e = $('camstat'); e.textContent = t; e.className = 'tag' + (ok === true ? ' ok' : ok === false ? ' bad' : ''); }
+async function startCam(deviceId) {
+  if (!navigator.mediaDevices || !window.isSecureContext) {
+    camStatus('camera blocked: open the page with "Open_AnemiaScan" (localhost)', false); return; }
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: {
+      deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+  } catch (e) { if (deviceId) return startCam(null); camStatus('no camera access: ' + e.name, false); return; }
+  $('cam').srcObject = stream;
+  const track = stream.getVideoTracks()[0], st = track.getSettings();
+  store.set('camId', st.deviceId || '');
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+  $('camsel').innerHTML = devs.map((d, i) => `<option value="${d.deviceId}" ${d.deviceId === st.deviceId ? 'selected' : ''}>${d.label || 'Camera ' + (i + 1)}</option>`).join('');
+  camStatus(`${st.width}×${st.height}, adjusting…`);
+  setTimeout(() => lockCam(track), 2500);
+}
+async function lockCam(track) {
+  // freeze exposure and white balance after warm-up, so every photo has the same colours (if the camera allows it)
+  const caps = track.getCapabilities ? track.getCapabilities() : {}, adv = {};
+  if ((caps.exposureMode || []).includes('manual')) adv.exposureMode = 'manual';
+  if ((caps.whiteBalanceMode || []).includes('manual')) adv.whiteBalanceMode = 'manual';
+  const st = track.getSettings(), size = `${st.width}×${st.height}`;
+  if (!Object.keys(adv).length) { camStatus(`${size} · auto colours (lock not supported)`, true); return; }
+  try { await track.applyConstraints({ advanced: [adv] }); camStatus(`${size} · colours locked`, true); }
+  catch (e) { camStatus(`${size} · auto colours`, true); }
+}
+function snap() {
+  const v = $('cam');
+  if (!stream || !v.videoWidth) throw new Error('The camera is not ready yet (or use upload photo).');
+  const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.95));
+}
+if ($('cam')) startCam(store.get('camId'));
+
+async function capture(region, input) {
+  if (busy) return; busy = true; $('err').textContent = '';
+  const tag = $('t-' + region); tag.className = 'tag'; tag.textContent = 'working…';
+  const fd = new FormData();
+  try {
+    if (input && input.files.length) fd.append('file', input.files[0]);
+    else if ($('cam')) fd.append('file', await snap(), 'camera.jpg');
+    const r = await fetch('/capture/' + region, {method: 'POST', body: fd}); const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    $('i-' + region).src = 'data:image/jpeg;base64,' + d.image;
+    tag.className = 'tag ' + (d.found ? 'ok' : 'bad'); tag.textContent = d.found ? `${region} found (${d.seconds}s)` : `no ${region} found, retake`;
+    $('res').style.display = 'none';
+  } catch (e) { tag.textContent = 'error'; $('err').textContent = e.message; }
+  if (input) input.value = '';
+  busy = false;
+}
+
+async function analyze() {
+  $('err').textContent = '';
+  const s = document.querySelector('input[name=sex]:checked');
+  if (!s) { $('err').textContent = 'Choose a gender.'; return; }
+  const age = parseFloat($('age').value);
+  if (!(age >= 5 && age <= 100)) { $('err').textContent = 'Type the age in years (5-100).'; $('age').focus(); return; }
+  $('go').disabled = true; $('go').textContent = 'Analyzing…';
+  try {
+    const r = await fetch('/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sex: s.value, age: age})});
+    const d = await r.json(); if (!r.ok) throw new Error(d.error);
+    const c = d.anemic ? 'var(--red)' : 'var(--green)';
+    $('r-hb').textContent = d.hb.toFixed(1) + ' g/dL'; $('r-hb').style.color = c;
+    $('r-v').textContent = d.anemic ? 'ANEMIC' : 'NOT ANEMIC'; $('r-v').style.color = c;
+    $('r-s').textContent = d.severity; $('r-s').style.color = c;
+    const f = v => v === null || v === undefined ? 'not detected' : v.toFixed(2) + ' g/dL';
+    $('r-p').innerHTML = `Palm: ${f(d.hb_palm)} (weight ${d.weights.palm})<br>Nail: ${f(d.hb_nail)} (weight ${d.weights.nail})<br>` +
+      `${d.sex[0].toUpperCase() + d.sex.slice(1)}, age ${d.age} · WHO cut-off ${d.cutoff} g/dL`;
+    $('r-w').innerHTML = d.warnings.map(w => `<div class="warn">⚠️ ${w}</div>`).join('');
+    $('res').style.display = 'block';
+  } catch (e) { $('err').textContent = e.message; }
+  $('go').disabled = false; $('go').textContent = 'Analyze';
+}
+
+async function resetAll() {
+  await fetch('/reset', {method: 'POST'});
+  for (const r of ['nail', 'palm']) { $('i-' + r).removeAttribute('src'); $('t-' + r).className = 'tag'; $('t-' + r).textContent = 'not taken'; }
+  document.querySelectorAll('input[name=sex]').forEach(x => x.checked = false);
+  $('age').value = '';
+  $('res').style.display = 'none'; $('err').textContent = '';
+}
+</script>
+</body>
+</html>
